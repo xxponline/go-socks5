@@ -19,6 +19,7 @@ func TestSOCKS5_Connect(t *testing.T) {
 	}
 	go func() {
 		conn, err := l.Accept()
+		t.Log("accepted")
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -28,6 +29,7 @@ func TestSOCKS5_Connect(t *testing.T) {
 		if _, err := io.ReadAtLeast(conn, buf, 4); err != nil {
 			t.Fatalf("err: %v", err)
 		}
+		t.Logf("go %v", buf)
 
 		if !bytes.Equal(buf, []byte("ping")) {
 			t.Fatalf("bad: %v", buf)
@@ -78,6 +80,7 @@ func TestSOCKS5_Connect(t *testing.T) {
 	// Send a ping
 	req.Write([]byte("ping"))
 
+	t.Logf("req bytes: %v", req.Bytes())
 	// Send all the bytes
 	conn.Write(req.Bytes())
 
@@ -96,6 +99,9 @@ func TestSOCKS5_Connect(t *testing.T) {
 	out := make([]byte, len(expected))
 
 	conn.SetDeadline(time.Now().Add(time.Second))
+	//time.Sleep(100)
+	//t.Logf("%v", out)
+
 	if _, err := io.ReadAtLeast(conn, out, len(out)); err != nil {
 		t.Fatalf("err: %v", err)
 	}
