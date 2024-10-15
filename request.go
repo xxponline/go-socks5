@@ -71,7 +71,7 @@ type Request struct {
 	// Requested command
 	Command uint8
 	// AuthContext provided during negotiation
-	AuthContext *AuthContext
+	//AuthContext *AuthContext
 	// AddrSpec of the the network that sent the request
 	RemoteAddr *AddrSpec
 	// AddrSpec of the desired destination

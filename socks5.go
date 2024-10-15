@@ -121,6 +121,7 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	defer conn.Close()
 	//bufConn := bufio.NewReader(conn)
 
+	// Handshake
 	// Read the version byte
 	version := []byte{0}
 	if _, err := conn.Read(version); err != nil {
@@ -136,12 +137,14 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	}
 
 	// Authenticate the connection
-	authContext, err := s.authenticate(conn, conn)
+	// authContext, err := s.authenticate(conn, conn)
+	_, err := s.authenticate(conn, conn)
 	if err != nil {
 		err = fmt.Errorf("Failed to authenticate: %v", err)
 		s.config.Logger.Printf("[ERR] socks: %v", err)
 		return err
 	}
+	// End Handshake
 
 	request, err := NewRequest(conn)
 	if err != nil {
@@ -152,7 +155,9 @@ func (s *Server) ServeConn(conn net.Conn) error {
 		}
 		return fmt.Errorf("Failed to read destination address: %v", err)
 	}
-	request.AuthContext = authContext
+
+	//request.AuthContext = authContext
+
 	if client, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
 		request.RemoteAddr = &AddrSpec{IP: client.IP, Port: client.Port}
 	}
@@ -165,4 +170,8 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	}
 
 	return nil
+}
+
+func acceptSocksRequest(conn net.Conn) {
+
 }
