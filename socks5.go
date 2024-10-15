@@ -122,6 +122,13 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	//bufConn := bufio.NewReader(conn)
 
 	// Handshake
+
+	//+----+----------+----------+
+	//|VER | NMETHODS | METHODS  |
+	//+----+----------+----------+
+	//| 1  |    1     | 1 to 255 |
+	//+----+----------+----------+
+
 	// Read the version byte
 	version := []byte{0}
 	if _, err := conn.Read(version); err != nil {
@@ -137,6 +144,27 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	}
 
 	// Authenticate the connection
+
+	//+----+--------+
+	//|VER | METHOD |
+	//+----+--------+
+	//| 1  |   1    |
+	//+----+--------+
+	//X’00’ NO AUTHENTICATION REQUIRED
+	//X’01’ GSSAPI
+	//X’02’ USERNAME/PASSWORD
+	//X’03’ to X’7F’ IANA ASSIGNED
+	//X’80’ to X’FE’ RESERVED FOR PRIVATE METHODS
+	//X’FF’ NO ACCEPTABLE METHODS
+
+	// -- You get detail information from conf.AuthMethods
+	//  Authentication for 0x02
+	//+----+------+----------+------+----------+
+	//|VER | ULEN |  UNAME   | PLEN |  PASSWD  |
+	//+----+------+----------+------+----------+
+	//| 1  |  1   | 1 to 255 |  1   | 1 to 255 |
+	//+----+------+----------+------+----------+
+
 	// authContext, err := s.authenticate(conn, conn)
 	_, err := s.authenticate(conn, conn)
 	if err != nil {
@@ -146,7 +174,7 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	}
 	// End Handshake
 
-	request, err := NewRequest(conn)
+	s5req, err := CreateSocks5RequestFromOriginalConnection(conn)
 	if err != nil {
 		if err == unrecognizedAddrType {
 			if err := sendReply(conn, addrTypeNotSupported, nil); err != nil {
@@ -155,11 +183,12 @@ func (s *Server) ServeConn(conn net.Conn) error {
 		}
 		return fmt.Errorf("Failed to read destination address: %v", err)
 	}
+	request := &EnhancedRequest{S5Request: *s5req}
 
 	//request.AuthContext = authContext
 
 	if client, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-		request.RemoteAddr = &AddrSpec{IP: client.IP, Port: client.Port}
+		request.SourceAddr = &AddrSpec{IP: client.IP, Port: client.Port}
 	}
 
 	// Process the client request

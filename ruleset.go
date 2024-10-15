@@ -6,7 +6,7 @@ import (
 
 // RuleSet is used to provide custom rules to allow or prohibit actions
 type RuleSet interface {
-	Allow(ctx context.Context, req *Request) (context.Context, bool)
+	Allow(ctx context.Context, req *EnhancedRequest) (context.Context, bool)
 }
 
 // PermitAll returns a RuleSet which allows all types of connections
@@ -27,7 +27,7 @@ type PermitCommand struct {
 	EnableAssociate bool
 }
 
-func (p *PermitCommand) Allow(ctx context.Context, req *Request) (context.Context, bool) {
+func (p *PermitCommand) Allow(ctx context.Context, req *EnhancedRequest) (context.Context, bool) {
 	switch req.Command {
 	case ConnectCommand:
 		return ctx, p.EnableConnect

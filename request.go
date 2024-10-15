@@ -37,7 +37,7 @@ var (
 
 // AddressRewriter is used to rewrite a destination transparently
 type AddressRewriter interface {
-	Rewrite(ctx context.Context, request *Request) (context.Context, *AddrSpec)
+	Rewrite(ctx context.Context, request *EnhancedRequest) (context.Context, *AddrSpec)
 }
 
 // AddrSpec is used to return the target AddrSpec
@@ -64,18 +64,25 @@ func (a AddrSpec) Address() string {
 	return net.JoinHostPort(a.FQDN, strconv.Itoa(a.Port))
 }
 
-// A Request represents request received by a server
-type Request struct {
+type S5Request struct {
+	//+----+-----+-------+------+----------+----------+
+	//|VER | CMD |  RSV  | ATYP | DST.ADDR | DST.PORT |
+	//+----+-----+-------+------+----------+----------+
+	//| 1  |  1  | X'00' |  1   | Variable |    2     |
+	//+----+-----+-------+------+----------+----------+
 	// Protocol version
 	Version uint8
 	// Requested command
 	Command uint8
-	// AuthContext provided during negotiation
-	//AuthContext *AuthContext
-	// AddrSpec of the the network that sent the request
-	RemoteAddr *AddrSpec
 	// AddrSpec of the desired destination
 	DestAddr *AddrSpec
+}
+
+// A Request represents request received by a server
+type EnhancedRequest struct {
+	S5Request
+	// AddrSpec of the the network that sent the request
+	SourceAddr *AddrSpec
 	// AddrSpec of the actual destination (might be affected by rewrite)
 	realDestAddr *AddrSpec
 }
@@ -85,8 +92,8 @@ type conn interface {
 	RemoteAddr() net.Addr
 }
 
-// NewRequest creates a new Request from the tcp connection
-func NewRequest(bufConn io.Reader) (*Request, error) {
+// CreateSocks5RequestFromOriginalConnection creates a new Request from the tcp connection
+func CreateSocks5RequestFromOriginalConnection(bufConn io.Reader) (*S5Request, error) {
 	// Read the version byte
 	header := []byte{0, 0, 0}
 	if _, err := io.ReadAtLeast(bufConn, header, 3); err != nil {
@@ -104,18 +111,24 @@ func NewRequest(bufConn io.Reader) (*Request, error) {
 		return nil, err
 	}
 
-	request := &Request{
+	request := &S5Request{
 		Version:  socks5Version,
 		Command:  header[1],
 		DestAddr: dest,
-		//bufConn:  bufConn,
 	}
+
+	//request := &EnhancedRequest{
+	//	Version:  socks5Version,
+	//	Command:  header[1],
+	//	DestAddr: dest,
+	//	//bufConn:  bufConn,
+	//}
 
 	return request, nil
 }
 
 // handleRequest is used for request processing after authentication
-func (s *Server) handleRequest(req *Request, conn net.Conn) error {
+func (s *Server) handleRequest(req *EnhancedRequest, conn net.Conn) error {
 	ctx := context.Background()
 
 	// Resolve the address if we have a FQDN
@@ -155,7 +168,7 @@ func (s *Server) handleRequest(req *Request, conn net.Conn) error {
 }
 
 // handleConnect is used to handle a connect command
-func (s *Server) handleConnect(ctx context.Context, conn net.Conn, req *Request) error {
+func (s *Server) handleConnect(ctx context.Context, conn net.Conn, req *EnhancedRequest) error {
 	// Check if this is allowed
 	if ctx_, ok := s.config.Rules.Allow(ctx, req); !ok {
 		if err := sendReply(conn, ruleFailure, nil); err != nil {
@@ -213,7 +226,7 @@ func (s *Server) handleConnect(ctx context.Context, conn net.Conn, req *Request)
 }
 
 // handleBind is used to handle a connect command
-func (s *Server) handleBind(ctx context.Context, conn conn, req *Request) error {
+func (s *Server) handleBind(ctx context.Context, conn conn, req *EnhancedRequest) error {
 	// Check if this is allowed
 	if ctx_, ok := s.config.Rules.Allow(ctx, req); !ok {
 		if err := sendReply(conn, ruleFailure, nil); err != nil {
@@ -232,7 +245,7 @@ func (s *Server) handleBind(ctx context.Context, conn conn, req *Request) error 
 }
 
 // handleAssociate is used to handle a connect command
-func (s *Server) handleAssociate(ctx context.Context, conn conn, req *Request) error {
+func (s *Server) handleAssociate(ctx context.Context, conn conn, req *EnhancedRequest) error {
 	// Check if this is allowed
 	if ctx_, ok := s.config.Rules.Allow(ctx, req); !ok {
 		if err := sendReply(conn, ruleFailure, nil); err != nil {
