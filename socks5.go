@@ -174,7 +174,7 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	}
 	// End Handshake
 
-	s5req, err := CreateSocks5RequestFromOriginalConnection(conn)
+	s5req, err := AcceptSocksRequest(conn)
 	if err != nil {
 		if err == unrecognizedAddrType {
 			if err := sendReply(conn, addrTypeNotSupported, nil); err != nil {
@@ -199,8 +199,4 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	}
 
 	return nil
-}
-
-func acceptSocksRequest(conn net.Conn) {
-
 }

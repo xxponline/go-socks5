@@ -1,6 +1,8 @@
 package socks5
 
 import (
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -92,8 +94,8 @@ type conn interface {
 	RemoteAddr() net.Addr
 }
 
-// CreateSocks5RequestFromOriginalConnection creates a new Request from the tcp connection
-func CreateSocks5RequestFromOriginalConnection(bufConn io.Reader) (*S5Request, error) {
+// AcceptSocksRequest creates a new Request from the tcp connection
+func AcceptSocksRequest(bufConn io.Reader) (*S5Request, error) {
 	// Read the version byte
 	header := []byte{0, 0, 0}
 	if _, err := io.ReadAtLeast(bufConn, header, 3); err != nil {
@@ -116,15 +118,42 @@ func CreateSocks5RequestFromOriginalConnection(bufConn io.Reader) (*S5Request, e
 		Command:  header[1],
 		DestAddr: dest,
 	}
-
-	//request := &EnhancedRequest{
-	//	Version:  socks5Version,
-	//	Command:  header[1],
-	//	DestAddr: dest,
-	//	//bufConn:  bufConn,
-	//}
-
 	return request, nil
+}
+
+func (request *S5Request) WriteTo(writer io.Writer) error {
+	if fqdn := request.DestAddr.FQDN; len(fqdn) > 0 {
+		{
+			buf := make([]byte, 0, 6+len(fqdn))
+			buf = append(buf, request.Version, request.Command, 0x00)
+			buf = append(buf, fqdnAddress, uint8(len(fqdn)))
+			buf = append(buf, []byte(fqdn)...)
+			buf = binary.BigEndian.AppendUint16(buf, uint16(request.DestAddr.Port))
+			_, err := writer.Write(buf)
+			return err
+		}
+	} else if ipaddr := request.DestAddr.IP.To4(); ipaddr != nil {
+		{
+			buf := make([]byte, 0, 6+4)
+			buf = append(buf, request.Version, request.Command, 0x00)
+			buf = append(buf, ipv4Address)
+			buf = append(buf, ipaddr...)
+			buf = binary.BigEndian.AppendUint16(buf, uint16(request.DestAddr.Port))
+			_, err := writer.Write(buf)
+			return err
+		}
+	} else if ipaddr := request.DestAddr.IP.To16(); ipaddr != nil {
+		{
+			buf := make([]byte, 0, 6+16)
+			buf = append(buf, request.Version, request.Command, 0x00)
+			buf = append(buf, ipv6Address)
+			buf = append(buf, ipaddr...)
+			buf = binary.BigEndian.AppendUint16(buf, uint16(request.DestAddr.Port))
+			_, err := writer.Write(buf)
+			return err
+		}
+	}
+	return errors.New("unexpected DestAddr Type")
 }
 
 // handleRequest is used for request processing after authentication
