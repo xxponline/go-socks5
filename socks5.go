@@ -183,16 +183,18 @@ func (s *Server) ServeConn(conn net.Conn) error {
 		}
 		return fmt.Errorf("Failed to read destination address: %v", err)
 	}
-	request := &EnhancedRequest{S5Request: *s5req}
+	//request := &EnhancedRequest{S5Request: *s5req}
 
+	// Not Necessary
 	//request.AuthContext = authContext
 
-	if client, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-		request.SourceAddr = &AddrSpec{IP: client.IP, Port: client.Port}
-	}
+	// Seems SourceAddr is not necessary by xxp
+	//if client, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+	//	request.SourceAddr = &AddrSpec{IP: client.IP, Port: client.Port}
+	//}
 
 	// Process the client request
-	if err := s.handleRequest(request, conn); err != nil {
+	if err := s.handleRequest(s5req, conn); err != nil {
 		err = fmt.Errorf("Failed to handle request: %v", err)
 		s.config.Logger.Printf("[ERR] socks: %v", err)
 		return err

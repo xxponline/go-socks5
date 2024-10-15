@@ -39,7 +39,7 @@ var (
 
 // AddressRewriter is used to rewrite a destination transparently
 type AddressRewriter interface {
-	Rewrite(ctx context.Context, request *EnhancedRequest) (context.Context, *AddrSpec)
+	Rewrite(ctx context.Context, request *S5Request) (context.Context, *AddrSpec)
 }
 
 // AddrSpec is used to return the target AddrSpec
@@ -81,13 +81,13 @@ type S5Request struct {
 }
 
 // A Request represents request received by a server
-type EnhancedRequest struct {
-	S5Request
-	// AddrSpec of the the network that sent the request
-	SourceAddr *AddrSpec
-	// AddrSpec of the actual destination (might be affected by rewrite)
-	realDestAddr *AddrSpec
-}
+//type EnhancedRequest struct {
+//	S5Request
+//	// AddrSpec of the the network that sent the request
+//	SourceAddr *AddrSpec
+//	// AddrSpec of the actual destination (might be affected by rewrite)
+//	realDestAddr *AddrSpec
+//}
 
 type conn interface {
 	Write([]byte) (int, error)
@@ -157,7 +157,7 @@ func (request *S5Request) WriteTo(writer io.Writer) error {
 }
 
 // handleRequest is used for request processing after authentication
-func (s *Server) handleRequest(req *EnhancedRequest, conn net.Conn) error {
+func (s *Server) handleRequest(req *S5Request, conn net.Conn) error {
 	ctx := context.Background()
 
 	// Resolve the address if we have a FQDN
@@ -175,19 +175,23 @@ func (s *Server) handleRequest(req *EnhancedRequest, conn net.Conn) error {
 	}
 
 	// Apply any address rewrites
-	req.realDestAddr = req.DestAddr
+	//req.realDestAddr = req.DestAddr
+	//if s.config.Rewriter != nil {
+	//	ctx, req.realDestAddr = s.config.Rewriter.Rewrite(ctx, req)
+	//}
+	var overwrittenDst *AddrSpec = nil
 	if s.config.Rewriter != nil {
-		ctx, req.realDestAddr = s.config.Rewriter.Rewrite(ctx, req)
+		ctx, overwrittenDst = s.config.Rewriter.Rewrite(ctx, req)
 	}
 
 	// Switch on the command
 	switch req.Command {
 	case ConnectCommand:
-		return s.handleConnect(ctx, conn, req)
+		return s.handleConnect(ctx, conn, req, overwrittenDst)
 	case BindCommand:
-		return s.handleBind(ctx, conn, req)
+		return s.handleBind(ctx, conn, req, overwrittenDst)
 	case AssociateCommand:
-		return s.handleAssociate(ctx, conn, req)
+		return s.handleAssociate(ctx, conn, req, overwrittenDst)
 	default:
 		if err := sendReply(conn, commandNotSupported, nil); err != nil {
 			return fmt.Errorf("Failed to send reply: %v", err)
@@ -197,7 +201,7 @@ func (s *Server) handleRequest(req *EnhancedRequest, conn net.Conn) error {
 }
 
 // handleConnect is used to handle a connect command
-func (s *Server) handleConnect(ctx context.Context, conn net.Conn, req *EnhancedRequest) error {
+func (s *Server) handleConnect(ctx context.Context, conn net.Conn, req *S5Request, overwrittenDst *AddrSpec) error {
 	// Check if this is allowed
 	if ctx_, ok := s.config.Rules.Allow(ctx, req); !ok {
 		if err := sendReply(conn, ruleFailure, nil); err != nil {
@@ -215,7 +219,11 @@ func (s *Server) handleConnect(ctx context.Context, conn net.Conn, req *Enhanced
 			return net.Dial(net_, addr)
 		}
 	}
-	target, err := dial(ctx, "tcp", req.realDestAddr.Address())
+	realDstAddr := overwrittenDst
+	if realDstAddr == nil {
+		realDstAddr = req.DestAddr
+	}
+	target, err := dial(ctx, "tcp", realDstAddr.Address())
 	if err != nil {
 		msg := err.Error()
 		resp := hostUnreachable
@@ -255,7 +263,7 @@ func (s *Server) handleConnect(ctx context.Context, conn net.Conn, req *Enhanced
 }
 
 // handleBind is used to handle a connect command
-func (s *Server) handleBind(ctx context.Context, conn conn, req *EnhancedRequest) error {
+func (s *Server) handleBind(ctx context.Context, conn conn, req *S5Request, overwrittenDst *AddrSpec) error {
 	// Check if this is allowed
 	if ctx_, ok := s.config.Rules.Allow(ctx, req); !ok {
 		if err := sendReply(conn, ruleFailure, nil); err != nil {
@@ -274,7 +282,7 @@ func (s *Server) handleBind(ctx context.Context, conn conn, req *EnhancedRequest
 }
 
 // handleAssociate is used to handle a connect command
-func (s *Server) handleAssociate(ctx context.Context, conn conn, req *EnhancedRequest) error {
+func (s *Server) handleAssociate(ctx context.Context, conn conn, req *S5Request, overwrittenDst *AddrSpec) error {
 	// Check if this is allowed
 	if ctx_, ok := s.config.Rules.Allow(ctx, req); !ok {
 		if err := sendReply(conn, ruleFailure, nil); err != nil {

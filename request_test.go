@@ -111,11 +111,10 @@ func TestRequest_Connect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	request := &EnhancedRequest{S5Request: *req}
 
 	t.Logf("localConn send buffer (after New Request) : %v", localConn.sendBuf.Bytes())
 
-	if err := s.handleRequest(request, remoteConn); err != nil {
+	if err := s.handleRequest(req, remoteConn); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
@@ -195,9 +194,8 @@ func TestRequest_Connect_RuleFail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	request := &EnhancedRequest{S5Request: *req}
 
-	if err := s.handleRequest(request, remoteConn); !strings.Contains(err.Error(), "blocked by rules") {
+	if err := s.handleRequest(req, remoteConn); !strings.Contains(err.Error(), "blocked by rules") {
 		t.Fatalf("err: %v", err)
 	}
 
