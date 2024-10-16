@@ -121,6 +121,41 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	defer conn.Close()
 	//bufConn := bufio.NewReader(conn)
 
+	err := s.HandshakeAndAuthenticate(conn)
+	if err != nil {
+		return err
+	}
+
+	s5req, err := AcceptSocksRequest(conn)
+	if err != nil {
+		if err == unrecognizedAddrType {
+			if err := sendReply(conn, addrTypeNotSupported, nil); err != nil {
+				return fmt.Errorf("Failed to send reply: %v", err)
+			}
+		}
+		return fmt.Errorf("Failed to read destination address: %v", err)
+	}
+	//request := &EnhancedRequest{S5Request: *s5req}
+
+	// Not Necessary
+	//request.AuthContext = authContext
+
+	// Seems SourceAddr is not necessary by xxp
+	//if client, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+	//	request.SourceAddr = &AddrSpec{IP: client.IP, Port: client.Port}
+	//}
+
+	// Process the client request
+	if err := s.handleRequest(s5req, conn); err != nil {
+		err = fmt.Errorf("Failed to handle request: %v", err)
+		s.config.Logger.Printf("[ERR] socks: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (s *Server) HandshakeAndAuthenticate(conn net.Conn) error {
 	// Handshake
 
 	//+----+----------+----------+
@@ -173,32 +208,5 @@ func (s *Server) ServeConn(conn net.Conn) error {
 		return err
 	}
 	// End Handshake
-
-	s5req, err := AcceptSocksRequest(conn)
-	if err != nil {
-		if err == unrecognizedAddrType {
-			if err := sendReply(conn, addrTypeNotSupported, nil); err != nil {
-				return fmt.Errorf("Failed to send reply: %v", err)
-			}
-		}
-		return fmt.Errorf("Failed to read destination address: %v", err)
-	}
-	//request := &EnhancedRequest{S5Request: *s5req}
-
-	// Not Necessary
-	//request.AuthContext = authContext
-
-	// Seems SourceAddr is not necessary by xxp
-	//if client, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-	//	request.SourceAddr = &AddrSpec{IP: client.IP, Port: client.Port}
-	//}
-
-	// Process the client request
-	if err := s.handleRequest(s5req, conn); err != nil {
-		err = fmt.Errorf("Failed to handle request: %v", err)
-		s.config.Logger.Printf("[ERR] socks: %v", err)
-		return err
-	}
-
 	return nil
 }
