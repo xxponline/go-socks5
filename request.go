@@ -16,9 +16,9 @@ const (
 	ConnectCommand   = uint8(1)
 	BindCommand      = uint8(2)
 	AssociateCommand = uint8(3)
-	ipv4Address      = uint8(1)
-	fqdnAddress      = uint8(3)
-	ipv6Address      = uint8(4)
+	Ipv4Address      = uint8(1)
+	FqdnAddress      = uint8(3)
+	Ipv6Address      = uint8(4)
 )
 
 const (
@@ -126,7 +126,7 @@ func (request *S5Request) WriteTo(writer io.Writer) error {
 		{
 			buf := make([]byte, 0, 6+len(fqdn))
 			buf = append(buf, request.Version, request.Command, 0x00)
-			buf = append(buf, fqdnAddress, uint8(len(fqdn)))
+			buf = append(buf, FqdnAddress, uint8(len(fqdn)))
 			buf = append(buf, []byte(fqdn)...)
 			buf = binary.BigEndian.AppendUint16(buf, uint16(request.DestAddr.Port))
 			_, err := writer.Write(buf)
@@ -136,7 +136,7 @@ func (request *S5Request) WriteTo(writer io.Writer) error {
 		{
 			buf := make([]byte, 0, 6+4)
 			buf = append(buf, request.Version, request.Command, 0x00)
-			buf = append(buf, ipv4Address)
+			buf = append(buf, Ipv4Address)
 			buf = append(buf, ipaddr...)
 			buf = binary.BigEndian.AppendUint16(buf, uint16(request.DestAddr.Port))
 			_, err := writer.Write(buf)
@@ -146,7 +146,7 @@ func (request *S5Request) WriteTo(writer io.Writer) error {
 		{
 			buf := make([]byte, 0, 6+16)
 			buf = append(buf, request.Version, request.Command, 0x00)
-			buf = append(buf, ipv6Address)
+			buf = append(buf, Ipv6Address)
 			buf = append(buf, ipaddr...)
 			buf = binary.BigEndian.AppendUint16(buf, uint16(request.DestAddr.Port))
 			_, err := writer.Write(buf)
@@ -313,21 +313,21 @@ func readAddrSpec(r io.Reader) (*AddrSpec, error) {
 
 	// Handle on a per type basis
 	switch addrType[0] {
-	case ipv4Address:
+	case Ipv4Address:
 		addr := make([]byte, 4)
 		if _, err := io.ReadAtLeast(r, addr, len(addr)); err != nil {
 			return nil, err
 		}
 		d.IP = net.IP(addr)
 
-	case ipv6Address:
+	case Ipv6Address:
 		addr := make([]byte, 16)
 		if _, err := io.ReadAtLeast(r, addr, len(addr)); err != nil {
 			return nil, err
 		}
 		d.IP = net.IP(addr)
 
-	case fqdnAddress:
+	case FqdnAddress:
 		if _, err := r.Read(addrType); err != nil {
 			return nil, err
 		}
@@ -360,22 +360,22 @@ func sendReply(w io.Writer, resp uint8, addr *AddrSpec) error {
 	var addrPort uint16
 	switch {
 	case addr == nil:
-		addrType = ipv4Address
+		addrType = Ipv4Address
 		addrBody = []byte{0, 0, 0, 0}
 		addrPort = 0
 
 	case addr.FQDN != "":
-		addrType = fqdnAddress
+		addrType = FqdnAddress
 		addrBody = append([]byte{byte(len(addr.FQDN))}, addr.FQDN...)
 		addrPort = uint16(addr.Port)
 
 	case addr.IP.To4() != nil:
-		addrType = ipv4Address
+		addrType = Ipv4Address
 		addrBody = []byte(addr.IP.To4())
 		addrPort = uint16(addr.Port)
 
 	case addr.IP.To16() != nil:
-		addrType = ipv6Address
+		addrType = Ipv6Address
 		addrBody = []byte(addr.IP.To16())
 		addrPort = uint16(addr.Port)
 
