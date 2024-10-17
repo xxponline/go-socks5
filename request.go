@@ -156,8 +156,8 @@ func (request *S5Request) WriteTo(writer io.Writer) error {
 	return errors.New("unexpected DestAddr Type")
 }
 
-// handleRequest is used for request processing after authentication
-func (s *Server) handleRequest(req *S5Request, conn net.Conn) error {
+// HandleRequest is used for request processing after authentication
+func (s *Server) HandleRequest(req *S5Request, conn net.Conn) error {
 	ctx := context.Background()
 
 	// Resolve the address if we have a FQDN

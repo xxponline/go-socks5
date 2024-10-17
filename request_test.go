@@ -114,7 +114,7 @@ func TestRequest_Connect(t *testing.T) {
 
 	t.Logf("localConn send buffer (after New Request) : %v", localConn.sendBuf.Bytes())
 
-	if err := s.handleRequest(req, remoteConn); err != nil {
+	if err := s.HandleRequest(req, remoteConn); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
@@ -195,7 +195,7 @@ func TestRequest_Connect_RuleFail(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	if err := s.handleRequest(req, remoteConn); !strings.Contains(err.Error(), "blocked by rules") {
+	if err := s.HandleRequest(req, remoteConn); !strings.Contains(err.Error(), "blocked by rules") {
 		t.Fatalf("err: %v", err)
 	}
 

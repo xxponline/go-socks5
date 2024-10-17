@@ -146,7 +146,7 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	//}
 
 	// Process the client request
-	if err := s.handleRequest(s5req, conn); err != nil {
+	if err := s.HandleRequest(s5req, conn); err != nil {
 		err = fmt.Errorf("Failed to handle request: %v", err)
 		s.config.Logger.Printf("[ERR] socks: %v", err)
 		return err
